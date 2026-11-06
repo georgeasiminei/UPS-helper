@@ -53,6 +53,10 @@ The owner reports the following circuit and test results, added on 2026-11-07:
   45 V. The manufacturer and exact circuit topology have not been provided.
   Forward voltage depends on current and temperature; it is not a zero-drop
   ideal diode. See a [manufacturer 15SQ045 datasheet](https://diotec.com/files/diotec/files/pdf/datasheets/15sq045.pdf).
+- The owner recalls measuring at most about **150 mV across the diode while
+  the assembled circuit powered the Pi**, before insulating it 1-2 years ago.
+  This was an operating-circuit measurement; the load used and present drop
+  under four-core stress have not been established.
 - A high-value resistor to discharge the capacitors over time; its value has
   not been provided.
 - The circuit sits between the power bank's output and the Pi's power input.
@@ -348,6 +352,14 @@ See the [restart and filesystem resilience proposal](docs/RESILIENCE.md) for
 the recommended storage layout, recovery behavior, runtime assumptions, and
 acceptance tests. The current Pi configuration has only been inspected; these
 changes have not been deployed.
+
+The owner is willing to accept a Pi restart at each power-bank source change.
+Removing the entire inline hold-up assembly and powering the Pi directly from
+the bank is therefore a candidate simplification, subject to verifying steady
+voltage and autonomous recovery. See the proposal's hardware options and
+acceptance conditions. Removing only the blocking diode is a different change
+and may allow stored energy to discharge upstream. No circuit has been removed
+or modified by the agent.
 
 Telemetry works; the next step is to design and test the policy. It needs explicit
 choices for outage delays, mains return, low-battery behavior, shutdown order,
