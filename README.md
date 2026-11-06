@@ -12,8 +12,9 @@ Recorded on 2026-11-07 in Europe/Bucharest:
 - Host: Raspberry Pi Zero 2 W, connected to the UPS by USB.
 - Pi power: a 10 Ah power bank charged from the UPS, with a capacitor hold-up
   circuit between the bank and Pi. Owner testing shows that source switching
-  usually succeeds, but removing the bank's charging input at a Pi load of
-  about 3 W causes a reboot. Continuity is therefore load-dependent.
+  usually succeeds, but removing the bank's charging input under heavy CPU
+  load causes a reboot. The owner reproduced this with `stress -c 3` (three
+  of four cores loaded); no reboot has been observed on input connection.
 - OS: Debian 13 (trixie), aarch64, kernel `6.18.60+rpt-rpi-v8`.
 - Installed: `nut-server` and `nut-client` 2.8.1-5, and `usbutils` 1:018-2.
   SSH is enabled.
@@ -52,10 +53,15 @@ The owner reports the following circuit and test results, added on 2026-11-07:
 - A high-value resistor to discharge the capacitors over time; its value has
   not been provided.
 - The circuit sits between the power bank's output and the Pi's power input.
-- Switching the bank's source, including connecting its charging USB input,
-  produces a brief dip. The circuit usually bridges it without a Pi restart.
-- At the highest tested Pi load, about **3 W**, removing wall power from the
-  bank's charging input causes the Pi to reboot.
+- Switching the bank's source produces a brief dip. The circuit usually bridges
+  it without a Pi restart. The owner has never observed a restart on connecting
+  the charging input during the tests performed.
+- Removing the bank's charging input causes a restart when at least three of
+  the four CPU cores are fully loaded, reproduced with **`stress -c 3`**.
+  The earlier maximum-load measurement was about **3 W**; usual reported Pi
+  consumption is **less than 1 W**.
+- At least **24 hours** of operation on the bank, including recovery after a
+  restart, is a desired outcome; a full runtime test has not established it.
 
 Consequently, loss of UPS output at battery exhaustion, or a commanded outlet
 shutdown that removes power from the bank's charger, may reboot the controller.
@@ -70,6 +76,34 @@ are an illustrative window, not measured circuit voltages or an asserted Pi
 reset threshold. Actual hold-up depends on starting voltage, the Pi's usable
 voltage range, capacitor tolerances and ESR, diode/cable losses, and the load.
 See [TI's capacitor hold-up discussion](https://www.ti.com/lit/pdf/ssztbp1).
+
+For that same illustrative 5.00 V to 4.75 V window:
+
+| Total nominal capacitance | Ideal hold-up at 1 W | Ideal hold-up at 3 W |
+| --- | --- | --- |
+| 14.1 mF (current bank) | 17.2 ms | 5.7 ms |
+| 28.2 mF | 34.4 ms | 11.5 ms |
+| 47 mF | 57.3 ms | 19.1 ms |
+| 100 mF | 121.9 ms | 40.6 ms |
+
+More capacitance can bridge a longer interruption, but these are ideal
+calculations, not validated component selections. First measure the duration,
+minimum voltage, and shape of the failing dip at the Pi input. A gradual droop
+suggests insufficient stored energy; a large immediate step also calls for
+checking capacitor ESR, diode drop, wiring resistance, and upstream isolation.
+Stored energy should support the Pi rather than drain back into the bank.
+
+Increasing capacitance increases charging inrush and recharge demand, which
+can pull down the supply or trigger current limiting. The circuit may need a
+controlled charging path sized with the power bank and diode; the existing
+high-value discharge resistor does not by itself limit capacitor charging.
+See [TI on capacitor inrush](https://www.ti.com/document-viewer/lit/html/SSZTBX2/GUID-2AF5E1CE-C09D-447F-ACB7-ED209C847E47).
+
+A small series inductor is not recommended as an unmeasured addition for this
+source handover. It can filter fast noise, but it does not establish enough
+hold-up energy for the interruption. Its resistance adds voltage drop, its
+current rating and saturation matter, and an LC network can ring unless
+properly designed and damped. See [Analog Devices on LC filter resonance](https://www.analog.com/en/resources/analog-dialogue/articles/speed-up-the-design-of-emi-filters-for-switch-mode-power-supplies.html).
 
 To diagnose or change the circuit, the missing evidence is the schematic,
 component details, and the voltage-versus-time waveform at the Pi power input
@@ -258,6 +292,11 @@ and [`usbhid-ups` documentation](https://networkupstools.org/docs/man/usbhid-ups
 
 ## Future outage policy
 
+See the [restart and filesystem resilience proposal](docs/RESILIENCE.md) for
+the recommended storage layout, recovery behavior, runtime assumptions, and
+acceptance tests. The current Pi configuration has only been inspected; these
+changes have not been deployed.
+
 Telemetry works; the next step is to design and test the policy. It needs explicit
 choices for outage delays, mains return, low-battery behavior, shutdown order,
 and restoration, based on the devices connected and their dependencies. The
@@ -271,10 +310,11 @@ known controller reboot condition adds these requirements:
   the same source transition before orchestration is complete.
 - Start monitoring and the controller automatically after a Pi reboot, and
   reconnect to the UPS with retries. A reboot can occur mid-outage.
-- Persist outage progress before actions that might interrupt the controller.
-  Reconcile saved progress with fresh UPS telemetry and equipment state after
-  boot; repeating an action must be safe. Stale progress or missing telemetry
-  alone must not trigger an outlet shutdown.
+- When policy requires history across reboot, persist essential progress in a
+  writable location outside the RAM overlay before actions that might interrupt
+  the controller. Reconcile saved progress with fresh UPS telemetry and equipment
+  state after boot; repeating an action must be safe. Stale progress or missing
+  telemetry alone must not trigger an outlet shutdown.
 - Complete any required controller-issued final UPS command while the Pi is
   still running. Recovery cannot substitute for a command that was never sent.
 - Test controller reboot during orchestration, charger-input loss and return
