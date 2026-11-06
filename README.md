@@ -71,8 +71,8 @@ The owner reports the following circuit and test results, added on 2026-11-07:
 
 An [official Duracell PB3 manual](https://www.duracell.co.uk/upload/2018/03/ce610_n_dur_pb_manual_10050mah_eng.pdf)
 also lists 36.5 Wh, but refers to a different item code from the photographed
-unit. No uninterrupted charging-input handover guarantee was found in that
-manual. Simultaneous charging and output observed by the owner does not itself
+unit. No uninterrupted charging-input handover guarantee was found in the
+manual's extracted text. Simultaneous charging and output observed by the owner does not itself
 establish seamless switching.
 
 Consequently, loss of UPS output at battery exhaustion, or a commanded outlet
