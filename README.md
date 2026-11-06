@@ -10,8 +10,10 @@ Recorded on 2026-11-07 in Europe/Bucharest:
 
 - UPS: Eaton 5P1150IR, rack 1U, 1150 VA / 770 W, with new batteries.
 - Host: Raspberry Pi Zero 2 W, connected to the UPS by USB.
-- Pi power: a 10 Ah power bank, charged from the UPS. Whether it supplies
-  uninterrupted power when its charging input changes has not been validated.
+- Pi power: a 10 Ah power bank charged from the UPS, with a capacitor hold-up
+  circuit between the bank and Pi. Owner testing shows that source switching
+  usually succeeds, but removing the bank's charging input at a Pi load of
+  about 3 W causes a reboot. Continuity is therefore load-dependent.
 - OS: Debian 13 (trixie), aarch64, kernel `6.18.60+rpt-rpi-v8`.
 - Installed: `nut-server` and `nut-client` 2.8.1-5, and `usbutils` 1:018-2.
   SSH is enabled.
@@ -21,9 +23,9 @@ Recorded on 2026-11-07 in Europe/Bucharest:
   and monitor remain inactive. Diagnostic processes used temporary files and
   a localhost-only server, then exited and removed their temporary state.
 
-No mains disconnection, battery runtime test, forced shutdown, outlet change,
-or shutdown command has been performed. Tests so far have been monitoring and
-read-only.
+The SSH diagnostic sessions did not disconnect UPS mains, run a battery runtime
+test, change outlets, or send shutdown commands. Those sessions used monitoring
+and read-only tests. The owner's separate power-bank tests are recorded below.
 
 ## Wiring
 
@@ -39,6 +41,40 @@ the connections and rebooting the Pi, the UPS appeared on USB. See the
 [official Raspberry Pi Zero documentation](https://www.raspberrypi.com/documentation/computers/zero.html)
 for the port layout. Keep network equipment needed for monitoring and future
 shutdown coordination on UPS-backed power too.
+
+## Power-bank hold-up circuit and known reboot condition
+
+The owner reports the following circuit and test results, added on 2026-11-07:
+
+- Three 4.7 mF capacitors in parallel: nominal total **14.1 mF / 14,100 uF**.
+- A diode described as a special diode; its type, part number, and circuit
+  topology have not been provided.
+- A high-value resistor to discharge the capacitors over time; its value has
+  not been provided.
+- The circuit sits between the power bank's output and the Pi's power input.
+- Switching the bank's source, including connecting its charging USB input,
+  produces a brief dip. The circuit usually bridges it without a Pi restart.
+- At the highest tested Pi load, about **3 W**, removing wall power from the
+  bank's charging input causes the Pi to reboot.
+
+Consequently, loss of UPS output at battery exhaustion, or a commanded outlet
+shutdown that removes power from the bank's charger, may reboot the controller.
+This is an inference from the owner's charging-input removal test; the full
+UPS-exhaustion sequence has not been tested. The 10 Ah bank capacity does not
+establish continuity during its internal source transition.
+
+For scale, an ideal capacitor supplying a constant-power load gives
+`t = C * (V_initial^2 - V_final^2) / (2 * P)`. With 14.1 mF, a hypothetical
+5.00 V to 4.75 V discharge at 3 W gives only about **5.7 ms**. These voltages
+are an illustrative window, not measured circuit voltages or an asserted Pi
+reset threshold. Actual hold-up depends on starting voltage, the Pi's usable
+voltage range, capacitor tolerances and ESR, diode/cable losses, and the load.
+See [TI's capacitor hold-up discussion](https://www.ti.com/lit/pdf/ssztbp1).
+
+To diagnose or change the circuit, the missing evidence is the schematic,
+component details, and the voltage-versus-time waveform at the Pi power input
+during the failing transition at 3 W. No circuit change or additional power
+interruption test was performed in response to this report.
 
 ## Install and connect
 
@@ -93,9 +129,12 @@ If the UPS does not appear:
   and `busconnected=0`.
 - Check the cable and inspect recent USB messages with `dmesg` (administrator
   privileges may be needed).
-- Check power with `vcgencmd get_throttled`, if available. The initial value
-  was `0x0`, with no undervoltage events reported; after the fix no
-  undervoltage was reported either.
+- The diagnostic `vcgencmd get_throttled` value was `0x0`, but this does not
+  establish a stable power rail. Raspberry Pi documents that the Zero range
+  lacks the low-voltage detection circuitry found on other models; the value
+  cannot rule out a supply dip on this Pi. Use measurement at the Pi input to
+  characterize the reported transition. See
+  [Raspberry Pi power supply warnings](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#power-supply-warnings).
 
 ## Verified NUT communication
 
@@ -221,9 +260,28 @@ and [`usbhid-ups` documentation](https://networkupstools.org/docs/man/usbhid-ups
 
 Telemetry works; the next step is to design and test the policy. It needs explicit
 choices for outage delays, mains return, low-battery behavior, shutdown order,
-and restoration, based on the devices connected and their dependencies. Verify
-power-bank continuity and network availability as part of that work. No load
-shedding, shutdown orchestration, or restoration automation is currently
+and restoration, based on the devices connected and their dependencies. The
+known controller reboot condition adds these requirements:
+
+- Start orderly equipment shutdown with enough UPS runtime remaining to finish
+  before output disappears. Thresholds need measured shutdown times and a
+  margin; the idle runtime estimate is insufficient to choose them.
+- Keep the Pi's power-bank charger and required network equipment powered
+  through equipment shutdown. Cutting the charger outlet early can provoke
+  the same source transition before orchestration is complete.
+- Start monitoring and the controller automatically after a Pi reboot, and
+  reconnect to the UPS with retries. A reboot can occur mid-outage.
+- Persist outage progress before actions that might interrupt the controller.
+  Reconcile saved progress with fresh UPS telemetry and equipment state after
+  boot; repeating an action must be safe. Stale progress or missing telemetry
+  alone must not trigger an outlet shutdown.
+- Complete any required controller-issued final UPS command while the Pi is
+  still running. Recovery cannot substitute for a command that was never sent.
+- Test controller reboot during orchestration, charger-input loss and return
+  at maximum Pi load, and network loss/restoration before relying on the policy.
+
+These are design requirements, not implemented behavior. No load shedding,
+shutdown orchestration, reboot recovery, or restoration automation is currently
 claimed to be functional.
 
 ## Repository workflow
