@@ -14,6 +14,10 @@ Typical reported consumption is below 1 W. The goal is at least 24 hours of
 operation from the owner-described 10 Ah bank, including recovery after a
 restart. The subsequently supplied label identifies a Duracell PB3 rated
 **36.5 Wh**, with 5 V / 2.4 A maximum input and output.
+Later owner measurements in battery-only mode at the Pi input were 4.7 V idle
+and 4.4-4.5 V with all four cores stressed. Sustained voltage is a separate concern
+from transient hold-up. The sealed circuit input remains inaccessible, so the
+loss has not been attributed to the diode, wiring, connectors or power bank.
 
 A read-only SSH inspection found:
 
@@ -152,7 +156,9 @@ Before claiming acceptance, George and the implementation owner should verify:
 | 24 hours on the bank with representative work and a restart | Monitoring remains available when dependencies are powered; elapsed time and remaining energy recorded |
 | Maintenance and image restoration | Configuration changes persist deliberately, read-only protection returns, backup restores |
 
-Prepare a known-good backup before further interruption tests. First validate
+Correct and verify sustained Pi supply voltage before further interruption
+tests; additional capacitors and recovery software do not correct a continuously
+low input voltage. Prepare a known-good backup. First validate
 service restart and recovery on stable power, then enable and check read-only
 operation; perform controlled power-interruption and endurance testing last.
 If the policy cannot resolve ambiguous actions safely, revisit the policy or

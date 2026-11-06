@@ -68,12 +68,18 @@ The owner reports the following circuit and test results, added on 2026-11-07:
   consumption is **less than 1 W**.
 - At least **24 hours** of operation on the bank, including recovery after a
   restart, is a desired outcome; a full runtime test has not established it.
+- Subsequent multimeter readings at the **circuit output / Pi input** were
+  **4.7 V at idle** and varying between **4.4 and 4.5 V with all four cores
+  stressed**. These are owner-reported readings, not oscilloscope captures.
+  The circuit input cannot currently be probed because it is covered with
+  liquid electrical insulation. These readings were taken **on battery, with
+  the power bank's charging input disconnected**.
 
 An [official Duracell PB3 manual](https://www.duracell.co.uk/upload/2018/03/ce610_n_dur_pb_manual_10050mah_eng.pdf)
 also lists 36.5 Wh, but refers to a different item code from the photographed
 unit. No uninterrupted charging-input handover guarantee was found in the
-manual's extracted text. Simultaneous charging and output observed by the owner does not itself
-establish seamless switching.
+manual's extracted text. Simultaneous charging and output observed by the owner
+does not itself establish seamless switching.
 
 Consequently, loss of UPS output at battery exhaustion, or a commanded outlet
 shutdown that removes power from the bank's charger, may reboot the controller.
@@ -97,6 +103,14 @@ For that same illustrative 5.00 V to 4.75 V window:
 | 28.2 mF | 34.4 ms | 11.5 ms |
 | 47 mF | 57.3 ms | 19.1 ms |
 | 100 mF | 121.9 ms | 40.6 ms |
+
+The subsequently measured 4.7 V idle and 4.4-4.5 V loaded readings do not match
+that illustrative starting voltage. Correct the sustained supply-voltage drop
+before sizing hold-up capacitors: the Pi is intended for a nominal 5 V supply.
+More passive capacitance cannot raise a continuously low supply to 5 V, and an
+extra series inductor adds resistance. The varying multimeter display does not
+establish the frequency or shape of any electrical oscillation. See
+[Raspberry Pi supply guidance](https://www.raspberrypi.com/documentation/computers/getting-started.html#power-supply).
 
 More capacitance can bridge a longer interruption, but these are ideal
 calculations, not validated component selections. First measure the duration,
@@ -124,12 +138,20 @@ at 3 W. The owner does not have an oscilloscope, so the transient remains
 unmeasured. No circuit change or additional power interruption test was performed
 in response to this report.
 
-If a multimeter is available, first measure steady DC voltage at the bank
-output and Pi input, at idle and under the same heavy CPU load, with the bank
-both charging and battery-powered. Their difference helps establish normal
-diode/cable losses. An ordinary multimeter, including many MIN/MAX modes, can
-miss a millisecond dip; steady measurements cannot establish its duration or
-exclude a brief low voltage.
+Pi-input multimeter readings are now available, but the insulated circuit input
+prevents directly measuring the bank-to-Pi voltage loss. Diode drop, wiring and
+connector resistance, solder joints, and power-bank regulation are possible
+contributors; none has been isolated as the cause. An ordinary multimeter,
+including many MIN/MAX modes, can miss a millisecond dip; the readings cannot
+establish the handover dip's duration or minimum voltage.
+
+A proposed comparison avoids opening the insulated circuit: cleanly shut down
+the Pi, then power its PWR IN port directly from the same bank with a short,
+known-good USB power cable. Compare idle and steady full-load voltage at the
+same Pi-input measurement point in battery-only mode to match the original
+readings. Do not switch its input during this comparison. A materially higher voltage
+would implicate the bypassed inline path; similarly low voltage would keep the
+bank/source and direct cable in scope. This comparison has not been performed.
 
 If the diode is in series with the Pi supply or capacitor charging path, its
 drop can reduce the starting voltage and invalidate the illustrative 5.00 V
