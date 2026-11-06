@@ -11,7 +11,9 @@ input with at least three CPU cores loaded (`stress -c 3`). No restart has
 been observed on input connection in the tests performed. This asymmetry is
 observed behavior, not a guarantee for every load, bank state, or temperature.
 Typical reported consumption is below 1 W. The goal is at least 24 hours of
-operation from the 10 Ah bank, including recovery after a restart.
+operation from the owner-described 10 Ah bank, including recovery after a
+restart. The subsequently supplied label identifies a Duracell PB3 rated
+**36.5 Wh**, with 5 V / 2.4 A maximum input and output.
 
 A read-only SSH inspection found:
 
@@ -128,11 +130,13 @@ not prove a software limit eliminates resets. See
 
 ## Runtime and verification
 
-If the bank's 10 Ah label refers to a nominal 3.7 V cell voltage, its nominal
-energy is about 37 Wh, not 50 Wh at the 5 V output. At a total 1 W load the
-ideal calculation is 37 hours before conversion losses and bank overhead.
-Thus 24 hours is plausible, not established: actual usable capacity, efficiency,
-bank cutoff behavior, peripherals, and the complete load profile determine it.
+The supplied Duracell PB3 label specifies **36.5 Wh** of nominal energy; use
+that value instead of assuming 50 Wh from 10 Ah at the 5 V output. At a total
+1 W load the ideal calculation is 36.5 hours before conversion losses and bank
+overhead. As an illustration, if 80% of that energy reaches the load, it gives
+29.2 hours at 1 W; 80% is an assumption, not measured efficiency. Thus 24 hours
+is plausible, not established: actual usable capacity, age, efficiency, bank
+cutoff behavior, peripherals, and the complete load profile determine it.
 
 Before claiming acceptance, George and the implementation owner should verify:
 

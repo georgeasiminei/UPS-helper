@@ -10,8 +10,9 @@ Recorded on 2026-11-07 in Europe/Bucharest:
 
 - UPS: Eaton 5P1150IR, rack 1U, 1150 VA / 770 W, with new batteries.
 - Host: Raspberry Pi Zero 2 W, connected to the UPS by USB.
-- Pi power: a 10 Ah power bank charged from the UPS, with a capacitor hold-up
-  circuit between the bank and Pi. Owner testing shows that source switching
+- Pi power: a Duracell PB3 power bank (owner-described 10 Ah; label: 36.5 Wh,
+  5 V / 2.4 A maximum input and output) charged from the UPS, with a capacitor
+  hold-up circuit between the bank and Pi. Owner testing shows source switching
   usually succeeds, but removing the bank's charging input under heavy CPU
   load causes a reboot. The owner reproduced this with `stress -c 3` (three
   of four cores loaded); no reboot has been observed on input connection.
@@ -48,11 +49,16 @@ shutdown coordination on UPS-backed power too.
 The owner reports the following circuit and test results, added on 2026-11-07:
 
 - Three 4.7 mF capacitors in parallel: nominal total **14.1 mF / 14,100 uF**.
-- A diode described as a special diode; its type, part number, and circuit
-  topology have not been provided.
+- Diode: **15SQ045**, a Schottky rectifier designation commonly rated 15 A /
+  45 V. The manufacturer and exact circuit topology have not been provided.
+  Forward voltage depends on current and temperature; it is not a zero-drop
+  ideal diode. See a [manufacturer 15SQ045 datasheet](https://diotec.com/files/diotec/files/pdf/datasheets/15sq045.pdf).
 - A high-value resistor to discharge the capacitors over time; its value has
   not been provided.
 - The circuit sits between the power bank's output and the Pi's power input.
+- The supplied label photo identifies a **Duracell PB3**, **36.5 Wh**, with
+  **5 V / 2.4 A maximum** input and output. These are steady-state ratings,
+  not evidence of uninterrupted charge-input handover.
 - Switching the bank's source produces a brief dip. The circuit usually bridges
   it without a Pi restart. The owner has never observed a restart on connecting
   the charging input during the tests performed.
@@ -62,6 +68,12 @@ The owner reports the following circuit and test results, added on 2026-11-07:
   consumption is **less than 1 W**.
 - At least **24 hours** of operation on the bank, including recovery after a
   restart, is a desired outcome; a full runtime test has not established it.
+
+An [official Duracell PB3 manual](https://www.duracell.co.uk/upload/2018/03/ce610_n_dur_pb_manual_10050mah_eng.pdf)
+also lists 36.5 Wh, but refers to a different item code from the photographed
+unit. No uninterrupted charging-input handover guarantee was found in that
+manual. Simultaneous charging and output observed by the owner does not itself
+establish seamless switching.
 
 Consequently, loss of UPS output at battery exhaustion, or a commanded outlet
 shutdown that removes power from the bank's charger, may reboot the controller.
@@ -106,9 +118,27 @@ current rating and saturation matter, and an LC network can ring unless
 properly designed and damped. See [Analog Devices on LC filter resonance](https://www.analog.com/en/resources/analog-dialogue/articles/speed-up-the-design-of-emi-filters-for-switch-mode-power-supplies.html).
 
 To diagnose or change the circuit, the missing evidence is the schematic,
-component details, and the voltage-versus-time waveform at the Pi power input
-during the failing transition at 3 W. No circuit change or additional power
-interruption test was performed in response to this report.
+capacitor voltage ratings/ESR, resistor value, diode manufacturer, and the
+voltage-versus-time waveform at the Pi power input during the failing transition
+at 3 W. The owner does not have an oscilloscope, so the transient remains
+unmeasured. No circuit change or additional power interruption test was performed
+in response to this report.
+
+If a multimeter is available, first measure steady DC voltage at the bank
+output and Pi input, at idle and under the same heavy CPU load, with the bank
+both charging and battery-powered. Their difference helps establish normal
+diode/cable losses. An ordinary multimeter, including many MIN/MAX modes, can
+miss a millisecond dip; steady measurements cannot establish its duration or
+exclude a brief low voltage.
+
+If the diode is in series with the Pi supply or capacitor charging path, its
+drop can reduce the starting voltage and invalidate the illustrative 5.00 V
+starting assumption above. For example only, a 5.00 V source minus a measured
+0.25 V drop leaves 4.75 V before discharge; this is not a claim about the actual
+drop or Pi reset threshold. Confirm topology and normal voltages before sizing
+more capacitance. A properly specified MOSFET ideal-diode solution could reduce
+this loss while retaining reverse-current blocking, but its transient behavior
+and capacitor inrush still need design. See [TI's ideal-diode discussion](https://www.ti.com/lit/an/slvae57b/slvae57b.pdf).
 
 ## Install and connect
 
