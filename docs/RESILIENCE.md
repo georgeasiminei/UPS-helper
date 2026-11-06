@@ -35,6 +35,52 @@ Protecting bootability and preventing unintended equipment power actions take
 priority over retaining every telemetry sample. The 24-hour runtime goal needs
 measurement. No Pi settings were changed during this inspection.
 
+## Hardware options when controller restarts are acceptable
+
+The owner has stated that a restart on every power-bank source change is
+acceptable, provided the system recovers and filesystem risk is controlled.
+The recommendation is to evaluate direct bank-to-Pi power as the simplest
+candidate before investing in a larger passive hold-up circuit.
+
+| Option | Benefit | Condition or cost |
+| --- | --- | --- |
+| Remove the whole inline assembly; use a short, suitable USB power cable | Removes the assembly's diode and connection losses and capacitor charging demand | Direct-bank voltage and unattended recovery must be tested; switching interruptions remain possible |
+| Improve the existing hold-up circuit | May retain monitoring through source changes | First fix sustained voltage; confirm topology, use low-loss reverse blocking and controlled capacitor charging, and size stored energy for the actual gap |
+| Use a purpose-built battery power path with specified continuous 5 V output | Addresses continuity in the power design | Requires a suitable design and independent verification; the present bank label alone does not establish it |
+
+Removing the entire assembly is different from shorting its diode while
+leaving the capacitors attached. The diode may prevent the capacitors from
+feeding the bank during its switching interruption. A correctly designed
+MOSFET ideal diode can reduce forward loss while retaining reverse blocking,
+but it does not by itself supply energy across a bank output interruption.
+More capacitors cannot fix continuously low voltage, and an uncharacterized
+series inductor is not a recommended addition. See
+[TI on ideal-diode power paths](https://www.ti.com/lit/an/slvae57b/slvae57b.pdf).
+
+Accepting a reboot also accepts a monitoring/control gap until boot, USB and
+network recovery finish. A voltage dip can produce a hang, failed boot or
+repeated resets rather than a dependable restart. Acceptance therefore requires
+repeated **automatic return to working monitoring**, not merely observing one
+reboot. The direct-bank steady voltage remains unmeasured; the present low
+readings belong to the inline assembly's output.
+
+Complete dependent equipment shutdown while UPS output and required networking
+are still available, with enough measured margin to tolerate controller
+recovery. After UPS exhaustion the Pi's independent bank may keep it alive,
+but the UPS USB interface and network can remain unavailable until power
+returns. A final command that needs the controller must be sent while the UPS
+is reachable. Configure the Pi's NUT shutdown role explicitly: a default local
+shutdown policy must not inadvertently halt a controller intended to remain
+running on its own bank. See [NUT upsmon behavior](https://networkupstools.org/docs/man/upsmon.html).
+
+Recommended sequence: obtain a known-good backup on stable power; verify direct
+bank voltage under steady idle and intended maximum load; configure boot-enabled
+monitoring and the storage/recovery design below; then validate repeated charger
+input removal and insertion, including boot, low bank charge, and recovery of
+USB/network state. Validate the full outage and mains-return sequence and the
+24-hour goal afterward. These are recommendations; no hardware option has been
+selected as validated or deployed.
+
 ## Recommended storage layout and tradeoffs
 
 Use a read-only OS with a RAM-backed overlay, and write-protect the boot
