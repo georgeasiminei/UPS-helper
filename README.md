@@ -8,6 +8,12 @@ automation has not been configured or tested yet.**
 
 Recorded on 2026-11-07 in Europe/Bucharest:
 
+Latest read-only capture: [complete UPS telemetry at 18:16](docs/UPS-TELEMETRY-2026-11-07.md)
+(92 variables, writable-variable definitions and command discovery). See the
+[Vast.ai outage-control proposal](docs/OUTAGE-CONTROL-PROPOSAL.md) for suggested
+grace, demand reduction, maintenance, shutdown and recovery rules. These rules
+have not been deployed; rented machines were not contacted.
+
 - UPS: Eaton 5P1150IR, rack 1U, 1150 VA / 770 W, with new batteries.
 - Host: Raspberry Pi Zero 2 W, connected to the UPS by USB.
 - Pi power: a Duracell PB3 power bank (owner-described 10 Ah; label: 36.5 Wh,
