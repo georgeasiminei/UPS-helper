@@ -24,6 +24,10 @@ Recorded on 2026-11-07 in Europe/Bucharest:
 - Persistent NUT services are not configured: `MODE=none`; the system server
   and monitor remain inactive. Diagnostic processes used temporary files and
   a localhost-only server, then exited and removed their temporary state.
+- A later Wi-Fi failure after cold restarts was recovered by recreating the
+  connection. Read the [Wi-Fi profile loss investigation](docs/WIFI-INCIDENT-2026-11-07.md)
+  for the two empty Netplan files, filesystem checks, upstream report and
+  remaining uncertainty about the cause.
 
 The SSH diagnostic sessions did not disconnect UPS mains, run a battery runtime
 test, change outlets, or send shutdown commands. Those sessions used monitoring
