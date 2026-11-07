@@ -1,0 +1,18 @@
+version: 1
+mode: observe
+service:
+  state_path: .local/simulation-state.json
+hosts:
+  - name: example-server
+    enabled: true # Include in offline planning; never authorizes live actions.
+    light:
+      cpu_pl1_watts: 90
+      cpu_pl2_watts: 110
+      gpu_watts:
+        example-gpu: 130
+    drastic:
+      cpu_pl1_watts: 45
+      cpu_pl2_watts: 50
+      gpu_watts:
+        example-gpu: 75
+# Illustrative values only, unrelated to the user's actual server hardware.

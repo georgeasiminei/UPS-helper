@@ -11,6 +11,11 @@ behavior. Light and drastic reduction, Pi-driven Wake-on-LAN with retries, and
 an always-running Pi policy are requirements. Values and implementation
 choices below remain provisional until validated.
 
+Local implementation has started: see [implementation status](IMPLEMENTATION.md)
+for the observe-only service, YAML settings, JSON checkpoints and offline
+simulation. This foundation cannot execute SSH or operate equipment; the
+remaining live integrations and acceptance work below are still outstanding.
+
 ## Evidence, goals and constraints
 
 The [live telemetry snapshot](UPS-TELEMETRY-2026-11-07.md) contains 92 variables,

@@ -1,7 +1,9 @@
 # UPS control requirements
 
 Updated: 2026-11-07. Owner: George. Status: **documented requirements;
-implementation, deployment and acceptance tests remain future work**.
+implementation started as a local observe-only foundation; live deployment
+and hardware acceptance tests remain future work**. See
+[implementation and configuration](IMPLEMENTATION.md).
 
 This file is the source of truth for the requested behavior. The
 [control proposal](OUTAGE-CONTROL-PROPOSAL.md) supplies candidate thresholds and
@@ -13,11 +15,13 @@ configured policy.
 
 ## Scope and current authorization
 
-- **SCOPE-01 — Documentation first.** Record requirements and propose the
-  solution. Do not apply CPU/GPU limits, schedule/cancel Vast maintenance,
-  shut down or wake servers, change their configuration, or perform live power
-  tests as part of this documentation task. Servers are live, rented on Vast.ai
-  and not yet connected to the UPS.
+- **SCOPE-01 — Local implementation authorized; no SSH.** Implement and test
+  locally without executing any SSH commands, including connections to the Pi.
+  Keep equipment-changing actions disabled: no CPU/GPU limits, Vast changes,
+  server shutdown/wake, outlet changes or live power tests. Servers are live,
+  rented on Vast.ai and not yet connected to the UPS. The UPS currently powers
+  only a monitor in standby, according to the owner; this is not a representative
+  server load.
 - **SCOPE-02 — Explicit equipment mapping.** Maintain a configured inventory of
   managed hosts, the UPS protecting each host, dependencies, and wake targets.
   The Pi controller is not a server shutdown target. Machine identities,
@@ -25,7 +29,8 @@ configured policy.
   not these public requirements.
 - **SCOPE-03 — Existing verification.** UPS USB communication and read-only
   telemetry collection have passed. Persistent monitoring and outage control
-  are not currently configured. These requirements do not claim otherwise.
+  are not currently deployed. The local observe-only monitor and simulator do
+  not provide physical outage protection or claim verified live control.
 
 ## Outage detection and sequence
 

@@ -4,6 +4,24 @@ A Raspberry Pi monitors an Eaton UPS over USB. The intended future use is to
 automate an orderly response to a power outage and restoration. **That
 automation has not been configured or tested yet.**
 
+An **observe-only service and offline simulator are implemented locally**.
+They evaluate the policy and record proposed actions; this release cannot
+execute SSH, change power limits, call Vast, shut down servers or send wake
+packets. Nothing has been installed or enabled on the Pi by this implementation.
+
+- [Implementation and usage](docs/IMPLEMENTATION.md): Python service, systemd
+  unit, local setup, simulation and current limitations.
+- [YAML configuration example](config/observe.example.yaml): UPS connection,
+  policy timings/thresholds and host inventory. JSON is used for checkpoints,
+  logs and simulation inputs.
+
+Quick offline check after the local setup described above:
+
+```sh
+.venv/bin/ups-helper config-check --config config/observe.example.yaml
+.venv/bin/ups-helper simulate --config config/simulation.example.yaml --scenario examples/outage-and-recovery.json
+```
+
 The [requirements](docs/REQUIREMENTS.md) record the requested outage and recovery
 behavior: one-minute grace, light then drastic CPU/GPU power reduction, Vast
 maintenance and graceful server shutdown, followed by Pi-driven Wake-on-LAN
@@ -22,6 +40,8 @@ grace, two-stage reduction, maintenance, shutdown and Wake-on-LAN recovery rules
 These rules have not been deployed; rented machines were not contacted.
 
 - UPS: Eaton 5P1150IR, rack 1U, 1150 VA / 770 W, with new batteries.
+- Current load, owner-reported: only a monitor in standby. Loaded server runtime
+  and the appropriate CPU/GPU watt limits remain unmeasured.
 - Host: Raspberry Pi Zero 2 W, connected to the UPS by USB.
 - Pi power: a Duracell PB3 power bank (owner-described 10 Ah; label: 36.5 Wh,
   5 V / 2.4 A maximum input and output) charged from the UPS, with a capacitor
