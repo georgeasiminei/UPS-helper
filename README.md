@@ -4,6 +4,13 @@ A Raspberry Pi monitors an Eaton UPS over USB. The intended future use is to
 automate an orderly response to a power outage and restoration. **That
 automation has not been configured or tested yet.**
 
+The [requirements](docs/REQUIREMENTS.md) record the requested outage and recovery
+behavior: one-minute grace, light then drastic CPU/GPU power reduction, Vast
+maintenance and graceful server shutdown, followed by Pi-driven Wake-on-LAN
+retries until each recovery target is confirmed awake. The Pi must never be
+intentionally shut down by this policy; it must resume control after a possible
+power-transition restart or battery exhaustion and subsequent power return.
+
 ## Setup and status
 
 Recorded on 2026-11-07 in Europe/Bucharest:
@@ -11,8 +18,8 @@ Recorded on 2026-11-07 in Europe/Bucharest:
 Latest read-only capture: [complete UPS telemetry at 18:16](docs/UPS-TELEMETRY-2026-11-07.md)
 (92 variables, writable-variable definitions and command discovery). See the
 [Vast.ai outage-control proposal](docs/OUTAGE-CONTROL-PROPOSAL.md) for suggested
-grace, demand reduction, maintenance, shutdown and recovery rules. These rules
-have not been deployed; rented machines were not contacted.
+grace, two-stage reduction, maintenance, shutdown and Wake-on-LAN recovery rules.
+These rules have not been deployed; rented machines were not contacted.
 
 - UPS: Eaton 5P1150IR, rack 1U, 1150 VA / 770 W, with new batteries.
 - Host: Raspberry Pi Zero 2 W, connected to the UPS by USB.
@@ -82,6 +89,10 @@ The owner reports the following circuit and test results, added on 2026-11-07:
   consumption is **less than 1 W**.
 - At least **24 hours** of operation on the bank, including recovery after a
   restart, is a desired outcome; a full runtime test has not established it.
+- The controller must never intentionally shut down. The owner reports that
+  after a sufficiently long outage exhausts the Pi's battery, it starts again
+  when power reaches it. This full depletion/return path remains to be verified;
+  monitoring and pending server-wake retries must resume automatically.
 - Subsequent multimeter readings at the **circuit output / Pi input** were
   **4.7 V at idle** and varying between **4.4 and 4.5 V with all four cores
   stressed**. These are owner-reported readings, not oscilloscope captures.
@@ -358,6 +369,10 @@ and [`usbhid-ups` documentation](https://networkupstools.org/docs/man/usbhid-ups
 
 ## Future outage policy
 
+The [requirements](docs/REQUIREMENTS.md) are the source of truth for the requested
+behavior; numerical thresholds and implementation choices in the
+[control proposal](docs/OUTAGE-CONTROL-PROPOSAL.md) remain provisional.
+
 See the [restart and filesystem resilience proposal](docs/RESILIENCE.md) for
 the recommended storage layout, recovery behavior, runtime assumptions, and
 acceptance tests. The current Pi configuration has only been inspected; these
@@ -384,6 +399,13 @@ known controller reboot condition adds these requirements:
   the same source transition before orchestration is complete.
 - Start monitoring and the controller automatically after a Pi reboot, and
   reconnect to the UPS with retries. A reboot can occur mid-outage.
+- Never intentionally halt the Pi as part of server shutdown. It continues on
+  its own battery, with automatic recovery if it restarts or eventually loses
+  power and boots again when power returns.
+- On qualified mains recovery, use the Pi to wake gracefully halted servers
+  through Wake-on-LAN. Retry each pending target until identity-aware checks
+  confirm it is awake, then verify readiness before clearing owned maintenance.
+  Preserve pending wake work across Pi restarts and prolonged power loss.
 - When policy requires history across reboot, persist essential progress in a
   writable location outside the RAM overlay before actions that might interrupt
   the controller. Reconcile saved progress with fresh UPS telemetry and equipment

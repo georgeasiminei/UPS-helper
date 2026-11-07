@@ -3,6 +3,9 @@
 Recorded on 2026-11-07. Status: recommendation, not deployed. George is the
 decision and operational owner; implementation and acceptance testing remain
 future work. The intended device is a small, dedicated UPS controller.
+[Requirements](REQUIREMENTS.md) are authoritative for owner requirements;
+[the outage-control proposal](OUTAGE-CONTROL-PROPOSAL.md) contains provisional
+thresholds. No proposed design is active.
 
 ## Evidence and priorities
 
@@ -12,8 +15,9 @@ been observed on input connection in the tests performed. This asymmetry is
 observed behavior, not a guarantee for every load, bank state, or temperature.
 Typical reported consumption is below 1 W. The goal is at least 24 hours of
 operation from the owner-described 10 Ah bank, including recovery after a
-restart. The subsequently supplied label identifies a Duracell PB3 rated
-**36.5 Wh**, with 5 V / 2.4 A maximum input and output.
+restart; that duration has not been measured. The subsequently supplied label
+identifies a Duracell PB3 rated **36.5 Wh**, with 5 V / 2.4 A maximum input
+and output.
 Later owner measurements in battery-only mode at the Pi input were 4.7 V idle
 and 4.4-4.5 V with all four cores stressed. Sustained voltage is a separate concern
 from transient hold-up. The sealed circuit input remains inaccessible, so the
@@ -64,13 +68,20 @@ repeated **automatic return to working monitoring**, not merely observing one
 reboot. The direct-bank steady voltage remains unmeasured; the present low
 readings belong to the inline assembly's output.
 
-Complete dependent equipment shutdown while UPS output and required networking
-are still available, with enough measured margin to tolerate controller
-recovery. After UPS exhaustion the Pi's independent bank may keep it alive,
-but the UPS USB interface and network can remain unavailable until power
-returns. A final command that needs the controller must be sent while the UPS
-is reachable. Configure the Pi's NUT shutdown role explicitly: a default local
-shutdown policy must not inadvertently halt a controller intended to remain
+Gracefully halt managed servers while UPS output and required networking are
+still available, with enough measured margin to tolerate controller recovery.
+After safe mains and battery recovery, the Pi must send Wake-on-LAN and retry
+for each server until that server is confirmed awake. The Pi itself must never
+be included in the managed-host shutdown list or a default NUT shutdown hook: it
+is not intentionally shut down and is powered through its own battery. After
+UPS exhaustion the Pi's independent bank may keep it alive,
+but the UPS USB interface and network can remain unavailable longer than the
+Pi stays powered. Its battery may physically run out after more than 24 hours.
+The owner says the Pi starts again when power returns; this behavior and the
+controller's automatic recovery still require testing. A final command that
+needs the controller must be sent while the UPS is reachable. Configure the
+Pi's NUT shutdown role explicitly: a default local shutdown policy must not
+inadvertently halt a controller intended to remain
 running on its own bank. See [NUT upsmon behavior](https://networkupstools.org/docs/man/upsmon.html).
 
 Recommended sequence: obtain a known-good backup on stable power; verify direct
@@ -164,7 +175,11 @@ There is no general exactly-once guarantee for an external power command across
 an arbitrary reset without device-side support. A lost acknowledgement must
 not be interpreted as proof that the command failed.
 
-Run NUT and the controller as boot-enabled systemd services. Use supervised
+Run NUT and the controller as boot-enabled systemd services. They must resume
+and reconcile both after an unexpected reboot and after a long power loss.
+Wake intent and confirmation must survive a controller restart for each server;
+reconcile current server state and continue safe Wake-on-LAN retries until each
+is confirmed awake after the recovery conditions are met. Use supervised
 restart with a delay, and ensure start-rate limits do not permanently defeat
 recovery during a long USB/network outage; expected dependency loss should be
 handled inside the running service. A watchdog can later address hangs if
@@ -195,7 +210,10 @@ Before claiming acceptance, George and the implementation owner should verify:
 | Abrupt reset after read-only setup | OS boots with persistent configuration intact; temporary overlay writes disappear |
 | Reset during an equipment action | Controller reconciles uncertainty; no unintended repeat power cut |
 | Boot already on battery | Fresh UPS state obtained; no accidental new full grace period |
-| USB/network absent for an extended period | Paced retry and bounded memory/logging; recovery when connectivity returns |
+| USB/network absent for an extended period | Paced retry and bounded memory/logging, including when UPS USB loss outlasts Pi power; recovery when connectivity returns |
+| Pi battery exhaustion and power return | After a long outage exhausts the Pi battery, verify automatic boot when power returns and automatic service resume and reconciliation without manual intervention |
+| Restart during Wake-on-LAN retries | Per-host wake intent survives restart; controller reconciles each server and resumes retries until each is confirmed awake, subject to safe recovery conditions |
+| Pi excluded from shutdown | Verify the managed-host list and NUT shutdown configuration never intentionally shut down the Pi, including during an extended outage |
 | Invalid or missing checkpoint | Recovery mode rather than blind use of saved commands |
 | Checkpoint store missing, unmountable, full, or failing `fsync` | Error surfaced; no false claim of durable progress or unsafe action replay |
 | Charging input removed at maximum tested load | Reset, if it occurs, leads back to working monitoring without manual repair |

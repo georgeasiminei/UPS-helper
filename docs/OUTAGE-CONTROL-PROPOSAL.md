@@ -6,6 +6,11 @@ Implementation and controlled hardware tests are future work. Current work
 retrieved UPS/Pi diagnostics only; it did not contact rented hosts or change
 their power limits, workloads, listings or maintenance windows.
 
+The [requirements](REQUIREMENTS.md) are authoritative for user-requested
+behavior. Light and drastic reduction, Pi-driven Wake-on-LAN with retries, and
+an always-running Pi policy are requirements. Values and implementation
+choices below remain provisional until validated.
+
 ## Evidence, goals and constraints
 
 The [live telemetry snapshot](UPS-TELEMETRY-2026-11-07.md) contains 92 variables,
@@ -25,11 +30,14 @@ See [Eaton specifications](https://www.eaton.com/gr/en-gb/skuPage.5P1150IR.html)
 | Priority | Required outcome | Current evidence |
 | --- | --- | --- |
 | Must preserve | Leave workloads alone during the first minute unless energy is critically low | User requirement; thresholds below proposed |
+| Must preserve | Light reduction precedes a separate drastic stage during an ordinary outage | User requirement; per-host profiles unmeasured |
 | Must preserve | Graceful shutdown completes before usable UPS energy runs out | Loaded runtime and shutdown time unmeasured |
 | Must preserve | Cloud/API failure cannot block local protective actions | Design requirement; no implementation |
 | Must preserve | Temporary overrides restore existing normal settings, including after host reboot | Existing host startup configuration uninspected |
 | Must preserve | Pi or network failure has a defined recovery path | Pi handover resets previously observed |
-| Desired | Announce two hours of Vast maintenance, expand coverage if recovery is delayed | Create/cancel documented; extension semantics unresolved |
+| Must preserve | Pi never intentionally shuts down and resumes after reboot or physical battery exhaustion/power return | User requirement; complete power-return path unverified |
+| Must preserve | Pi retries Wake-on-LAN until each configured recovery target is confirmed awake | User requirement; actual host/network support unverified |
+| Must preserve | Announce two hours of Vast maintenance, expand coverage if recovery is delayed | Required behavior; API access and extension semantics unresolved |
 
 ## Recommended shape and alternatives
 
@@ -57,7 +65,8 @@ override local electrical safety or infer successful recovery from silence.
 NUT's `upsmon`/`upssched` can provide events, but time, battery, runtime and
 per-host recovery need one explicit state machine. Coordinate NUT shutdown hooks
 with it so the Pi is not inadvertently halted or the whole UPS switched off by
-a second policy. See [upsmon](https://networkupstools.org/docs/man/upsmon.html)
+a second policy. The Pi must never be a managed-server shutdown target or run
+a default local shutdown action as part of this outage policy. See [upsmon](https://networkupstools.org/docs/man/upsmon.html)
 and [upssched](https://networkupstools.org/docs/man/upssched.html).
 
 ## Proposed initial thresholds
@@ -92,8 +101,9 @@ until recovery. The first-minute exception is the emergency row only.
 | Stage | Trigger while on battery | Proposed response |
 | --- | --- | --- |
 | Grace | `t < 60 s`, no emergency | Observe and log only; no host or cloud changes |
-| Reduce demand | `t >= 60 s` | Apply temporary CPU PL1/PL2 and per-GPU limits; verify each result with a bounded 15 s attempt |
-| Announce outage | After attempting demand reduction, and `t >= 120 s`, or `R <= S + 3 min`, or `B <= 50%`; always after grace unless emergency | Request a two-hour Vast maintenance window; allow at most 15 s total API work, less if reserve requires |
+| Light reduction | `t >= 60 s`, no emergency | Apply the light CPU PL1/PL2 and per-GPU profile; verify results within a bounded 15 s stage budget |
+| Drastic reduction | After attempting light reduction, and any of `t >= 120 s`, `R <= S + 3 min`, or `B <= 50%`; always after grace unless emergency | Apply the distinct drastic profile; verify within a bounded 15 s stage budget, shortened by the shutdown deadline |
+| Announce outage | Immediately after attempting drastic reduction while still on battery | Request a two-hour Vast maintenance window; allow at most 15 s total API work, less if reserve requires |
 | Graceful shutdown | Maintenance fails/is unreachable/unconfirmed within its budget, or `t >= 5 min` | Start OS shutdown independently of cloud success; complete within measured reserve |
 | Emergency | `OB` plus UPS `LB`, or `R <= S`, or `B <= 20%`; an existing forced-shutdown state also requires immediate handling | Bypass grace and cloud waits; begin shutdown immediately; cap power only if it cannot delay shutdown |
 
@@ -102,6 +112,10 @@ above keeps hosts capped until five minutes elapsed or a safety threshold is
 reached, whichever comes first. This is a proposal to balance short outages
 against rented-workload interruption; it does not wait two hours to shut down.
 The two-hour value describes expected unavailability announced to renters.
+After the first minute, energy thresholds can cause light and drastic attempts
+to follow immediately; no minimum dwell is required if reserve is tightening.
+Emergency shutdown may skip either stage. Both stages use the same original
+baseline, and reaching drastic must never reclassify the light profile as normal.
 
 Caps and API calls must not block emergency evaluation. The 15-second stage
 budgets are total bounded budgets across hosts/devices, with limited concurrent
@@ -111,9 +125,10 @@ actual host shutdown against minimum usable loaded endurance, including the
 case where the Pi fails immediately after mains loss. If that budget cannot
 fit, reject activation rather than claiming the watchdog solves it.
 
-If the caps fail, continue to maintenance/shutdown with the unreduced demand
-assumption. Never credit power savings until verified. Reevaluate runtime after
-caps, but do not reverse an already-entered stage because an estimate rises.
+If a cap stage fails, continue to the next stage or maintenance/shutdown with
+the unreduced demand assumption. Never credit power savings until verified.
+Reevaluate runtime after caps, but do not reverse an already-entered stage
+because an estimate rises.
 Missing or invalid charge/runtime cannot count as healthy energy. Do not wait
 for the UPS's configured 15% low-battery signal; NUT warns that some devices
 announce low battery late. See [NUT UPS configuration guidance](https://networkupstools.org/docs/man/ups.conf.html).
@@ -126,11 +141,20 @@ signals and available reaction time require hardware verification.
 
 Discover CPU model, writable RAPL constraints, GPU identities and supported
 minimum/maximum limits in a later authorized host-inspection pass. No universal
-watt limits can be selected from UPS telemetry alone. As a tuning experiment,
-start around 60–70% of normal CPU PL1, bring PL2 near the new PL1 while respecting
-device limits, and try 65–75% of the existing normal GPU cap, clamped to its
-supported range. These are candidate tests, not promised savings or safe
-performance levels for the present renters. Measure whole-system AC demand;
+watt limits can be selected from UPS telemetry alone. Configure a normal,
+light and drastic profile for every supported device. Candidate tuning values:
+
+| Profile | CPU PL1 / PL2 | GPU limit | Intent |
+| --- | --- | --- | --- |
+| Normal | Existing normal settings | Existing normal settings | Preserve existing operating policy |
+| Light | Approximately 85–90% of the normal limits | Approximately 85–90% of the normal cap | Modest savings with limited workload impact |
+| Drastic | Approximately 40–60% of normal PL1, with PL2 near the reduced PL1 | Lowest validated supported cap that produces substantial savings | Conserve energy aggressively before shutdown |
+
+Every candidate must fit hardware-supported ranges and must never raise an
+existing limit. Drastic must not exceed light for any controlled limit; record
+unsupported settings explicitly rather than claiming a stage was applied.
+These are candidate tests, not promised savings or safe performance levels for
+the present renters. Exact watts remain open. Measure whole-system AC demand;
 CPU/GPU limits do not cap RAM, disks, fans, PSU losses or network equipment.
 
 Use supported runtime interfaces: Linux powercap/RAPL for compatible CPUs and
@@ -144,9 +168,11 @@ this through periodic read-back and reconcile fresh outage intent. See
 [NVIDIA state lifetimes](https://docs.nvidia.com/deploy/driver-persistence/data-persistence.html).
 
 For each host, record boot ID, hardware identity, pre-incident values, requested
-values and read-back results. Keep temporary override state under `/run` on the
-host and reconcile it after a policy-process restart. Keep only the incident
-and acknowledgements durably on the Pi, using the storage/recovery conditions
+values, current stage and read-back results. Capture the baseline before light
+reduction and retain it through drastic reduction. Keep temporary override
+state under `/run` on the host and reconcile it after a policy-process restart.
+Keep only essential incident/recovery state and acknowledgements durably on
+the Pi, using the storage/recovery conditions
 in [the resilience proposal](RESILIENCE.md).
 
 Do not alter firmware defaults or persist emergency values in startup scripts.
@@ -273,7 +299,15 @@ blockers until corrected/accepted with recovery evidence. The full runtime of
 the Pi bank and the network's separate UPS is unmeasured. A cloud worker cannot
 repair a failed local control path.
 
-## Recovery and optional restart
+The Pi's policy is to stay running throughout the outage, including after host
+shutdown and UPS output loss. Its battery may last approximately 24 hours, but
+that duration is unmeasured. If its battery physically runs out, the owner
+reports that it starts again when power reaches it. Verify this full return
+path and boot-enabled control; do not confuse battery exhaustion with a command
+to halt the Pi. Reconnect and reconcile after either a brief handover restart
+or a prolonged loss of Pi power, retaining per-host recovery intent.
+
+## Recovery and required Wake-on-LAN
 
 Require **two continuous minutes of fresh `OL`**, no on-battery/fault status,
 and a validated energy reserve for a repeat outage before lifting caps on
@@ -282,11 +316,57 @@ and enough energy at restored load to survive the grace minute plus shutdown
 reserve. An idle runtime estimate while the hosts are off is insufficient proof.
 Return to outage handling immediately if mains fails during recovery.
 
+The servers do not automatically restart after graceful shutdown. The Pi must
+use **Wake-on-LAN**, retrying until each configured recovery target is confirmed
+awake. This is required behavior that remains unimplemented and untested.
+The UPS's `ups.start.auto=yes` must not be treated as server restart handling.
+
 For hosts already halted, propose **five minutes stable mains and at least
 80% charge**, plus measured energy for staggered boot and an immediate repeat
-outage, before any automatic restart. This is a later policy, not an enabled
-behavior. Validate Wake-on-LAN or a BMC first. A server halted by its OS may not
-boot merely because the UPS has `ups.start.auto=yes`; no AC loss occurred.
+outage, before waking them. These recovery gates remain candidate values. The
+Pi can boot before the UPS or network has recovered; retry dependencies and
+hold pending wakes until fresh power evidence passes the gates.
+
+For each managed host, keep explicit desired recovery state and the expected
+wake MAC, network path, host identity, normal profile and readiness checks in
+private configuration. Persist shutdown intent and whether the host is a
+recovery target before issuing shutdown. Preserve deliberate manual off/disable
+intent; do not wake every discovered device. On every Pi boot, reconcile this
+intent with current host state before resuming outstanding work.
+
+Proposed per-host wake loop:
+
+1. Recheck recovery gates and dependency/boot power headroom. Stagger hosts so
+   normal startup limits and boot transients fit the UPS.
+2. Probe the expected host. If not confirmed awake, send a Wake-on-LAN packet
+   through its configured interface/network path and wait for a bounded period.
+3. Check identity-aware reachability, for example authenticated SSH with the
+   expected host key and host identity. A sent packet, successful sender exit
+   status, ping, or open port alone is not confirmation that the intended server
+   is awake.
+4. Retry that target until confirmed awake. Candidate pacing: every 30 seconds
+   for five minutes, then every minute up to 30 minutes, then every five minutes.
+   There is **no automatic attempt-count cutoff**; report prolonged failure
+   without abandoning the target. Use bounded probes and independent per-host
+   progress so one server cannot starve other recovery work.
+5. Once awake, stop wake packets for that host and check normal CPU/GPU settings,
+   host services and workload readiness. A booted but unhealthy server remains
+   pending readiness; more magic packets are not a readiness repair. Clear its
+   owned maintenance only after readiness is confirmed.
+
+Pause new wake attempts immediately on renewed mains loss, unsafe energy or
+unknown power. Return awake hosts to outage handling and keep pending targets
+for the next qualified recovery. If the Pi restarts or exhausts its battery
+mid-loop, resume from durable intent after fresh-state reconciliation; do not
+reset the outage grace timer. If a host later becomes unconfirmed while desired
+on, re-enter reconciliation and the gated retry loop. Intentional operator
+disable/off must suppress automatic waking.
+
+Validate host firmware/NIC wake settings, the graceful-halt path, the actual
+post-UPS-exhaustion power-return path and the Pi-to-host LAN route. A prior
+successful packet-send command does not establish any of these. Startup must
+restore normal host restrictions; old light/drastic overrides must not be
+persisted as the next boot's normal settings.
 
 After readiness checks, remove owned maintenance and any owned listing changes.
 If the Internet is still down, retain and retry the cloud cleanup independently;
@@ -307,23 +387,29 @@ an isolated machine and scheduled host maintenance for physical tests.
 | UPS-to-host mapping and capacity | Both W/VA ratings and transients fit at unrestricted worst load | George; hardware/load inventory |
 | Shutdown budget and battery estimate | Measured workload stop, OS halt, and usable runtime at representative/worst load | George with implementation owner; controlled tests |
 | Grace and emergency precedence | 59 s outage does nothing; 61 s caps; critically low energy bypasses grace | Backend implementation owner; deterministic simulation |
+| Distinct reduction profiles | Ordinary outage applies light then drastic; original baseline retained; drastic limits never exceed light | Host/backend owners; simulation then isolated host |
 | Cloud failure and timeouts | API unavailable/429/ambiguous response never consumes shutdown reserve | Integration owner; mocked API tests |
 | Maintenance create/extend/cancel | Confirmed 2→4→8 coverage, safe retries, and unrelated windows retained | Vast integration owner; provider clarification/safe machine |
 | Runtime-only overrides | Per-device read-back; exact restoration; host reboot removes emergency overrides; existing host startup policy preserved | Host integration owner; isolated host |
 | LAN/USB/Pi failure | Armed watchdog meets cached deadline; no fresh grace on reboot; no unintended outlet cut | Backend/host owners; fault simulation then controlled tests |
 | Pi power/storage | Stable input voltage, unattended recovery and durable minimal state as required | George; existing resilience plan and backup |
 | Mains flapping and low recharge | No repeated lift/reapply loops; restart energy budget proven | Implementation owner; simulation and controlled test |
-| No automatic host wake yet | Restart mechanism, workload readiness and renewed outage behavior proven before enabling | George and host integration owner |
+| Required Wake-on-LAN recovery | Repeated failed packets/probes do not exhaust attempts; expected host identity confirms awake, then readiness | George and host integration owner; isolated host/network |
+| Pi restart/battery exhaustion during waking | No intentional Pi shutdown; automatic return and pending per-host recovery resume after power returns | George and implementation owner; controlled tests |
+| Power fails during staggered waking | New wakes pause; awake hosts return to outage protection; outstanding targets retained | Host/backend owners; simulation then controlled test |
 
 Recommended order: approve/tune policy and equipment mapping; implement a
 read-only recorder and simulation; resolve Vast semantics; deploy local
-executors and watchdogs on isolated hosts; validate on representative load;
-then arm only the verified UPS-connected machines. Optional cloud renewal,
-unlisting and automatic restart follow their own acceptance conditions.
+executors, watchdogs and the required Pi Wake-on-LAN loop on isolated hosts;
+validate both outage stages and recovery on representative load; then arm only
+the verified UPS-connected machines. Coordinator placement and separate
+unlisting remain design choices; required maintenance renewal still needs its
+provider semantics verified.
 
 The recommendation favors a small local service over multiple local services
-or a cloud dependency for electrical safety. The accepted costs are a host
-component and conservative shutdown during prolonged control loss. Loaded
-runtime too short for the grace/reserve, unsupported host controls, or an
+or a cloud dependency for electrical safety. The proposed costs are a host
+component and conservative shutdown during prolonged control loss; the
+availability tradeoff still needs explicit acceptance. Loaded runtime too
+short for the grace/reserve, unsupported host controls, or an
 unreliable Pi power path would require revisiting the hardware/design before
 activation.
