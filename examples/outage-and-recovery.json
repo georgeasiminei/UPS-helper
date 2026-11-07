@@ -1,0 +1,71 @@
+{
+  "events": [
+    {
+      "at": 1000,
+      "variables": {"ups.status": "OL", "battery.charge": "100", "battery.runtime": "3600"},
+      "hosts": {"example-server": {"awake": true, "ready": true, "boot_id": "before-outage"}}
+    },
+    {
+      "at": 1001,
+      "variables": {"ups.status": "OB", "battery.charge": "100", "battery.runtime": "3600"}
+    },
+    {
+      "at": 1060,
+      "variables": {"ups.status": "OB", "battery.charge": "95", "battery.runtime": "3400"}
+    },
+    {
+      "at": 1061,
+      "variables": {"ups.status": "OB", "battery.charge": "95", "battery.runtime": "3400"}
+    },
+    {
+      "at": 1121,
+      "variables": {"ups.status": "OB", "battery.charge": "90", "battery.runtime": "3200"}
+    },
+    {
+      "at": 1122,
+      "variables": {"ups.status": "OB", "battery.charge": "90", "battery.runtime": "3200"},
+      "maintenance": {"example-server": true}
+    },
+    {
+      "at": 1301,
+      "variables": {"ups.status": "OB", "battery.charge": "85", "battery.runtime": "3000"},
+      "maintenance": {"example-server": true}
+    },
+    {
+      "at": 1302,
+      "variables": {"ups.status": "OL", "battery.charge": "85", "battery.runtime": "3600"},
+      "hosts": {"example-server": {"awake": false, "shutdown_confirmed": true}},
+      "maintenance": {"example-server": true}
+    },
+    {
+      "at": 1602,
+      "variables": {"ups.status": "OL", "battery.charge": "90", "battery.runtime": "3600"},
+      "hosts": {"example-server": {"awake": false}},
+      "maintenance": {"example-server": true}
+    },
+    {
+      "at": 1632,
+      "variables": {"ups.status": "OL", "battery.charge": "90", "battery.runtime": "3600"},
+      "hosts": {"example-server": {"awake": false}},
+      "maintenance": {"example-server": true}
+    },
+    {
+      "at": 1633,
+      "variables": {"ups.status": "OL", "battery.charge": "90", "battery.runtime": "3600"},
+      "hosts": {"example-server": {"awake": true, "ready": false, "boot_id": "after-outage"}},
+      "maintenance": {"example-server": true}
+    },
+    {
+      "at": 1640,
+      "variables": {"ups.status": "OL", "battery.charge": "90", "battery.runtime": "3600"},
+      "hosts": {"example-server": {"awake": true, "ready": true, "boot_id": "after-outage"}},
+      "maintenance": {"example-server": true}
+    },
+    {
+      "at": 1641,
+      "variables": {"ups.status": "OL", "battery.charge": "90", "battery.runtime": "3600"},
+      "hosts": {"example-server": {"awake": true, "ready": true, "boot_id": "after-outage"}},
+      "maintenance": {"example-server": false}
+    }
+  ]
+}

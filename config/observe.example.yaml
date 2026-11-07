@@ -1,0 +1,43 @@
+# This release accepts observe mode only. It cannot execute SSH, wake packets,
+# CPU/GPU changes, shutdown commands, outlet changes or Vast API writes.
+version: 1
+mode: observe
+
+nut:
+  host: 127.0.0.1
+  port: 3493
+  ups: eaton5p
+  timeout_seconds: 3
+  # A conservative assumed age bound, NOT a source timestamp. Verify actual
+  # driver polling/stale-data behavior before using telemetry for live control.
+  max_source_age_seconds: 30
+
+service:
+  controller_id: ups-controller
+  poll_seconds: 2
+  heartbeat_seconds: 60
+  state_path: /var/lib/ups-helper/state.json
+
+policy:
+  grace_seconds: 60
+  drastic_after_seconds: 120
+  shutdown_after_seconds: 300
+  runtime_reserve_seconds: 480
+  runtime_uncertainty_seconds: 60
+  drastic_runtime_margin_seconds: 180
+  drastic_charge_percent: 50
+  critical_charge_percent: 20
+  recovery_stable_seconds: 120
+  recovery_charge_percent: 50
+  wake_stable_seconds: 300
+  wake_charge_percent: 80
+  unknown_shutdown_seconds: 60
+  maintenance_hours: 2
+  maintenance_renew_before_seconds: 900
+  wake_retry_initial_seconds: 30
+  wake_retry_later_seconds: 300
+  wake_retry_backoff_after_seconds: 300
+
+# Empty until the private inventory is known. The monitor currently reports
+# only standby consumption and says nothing about loaded server endurance.
+hosts: []
