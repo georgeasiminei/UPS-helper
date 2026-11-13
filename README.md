@@ -339,13 +339,14 @@ controlled sockets.
 
 To repeat a driver-only data read with the installed NUT 2.8.1, while no
 other driver owns this USB device, select the intended UPS by its unique
-serial from private inventory. Do not rely on discovery order or changing
-USB device numbers:
+serial from private inventory. NUT serial selectors are regular expressions:
+escape any metacharacters in the literal serial and use an anchored pattern.
+Do not rely on discovery order or changing USB device numbers:
 
 ```sh
 (
     set -eu
-    ups_serial='REPLACE_WITH_DEVICE_SERIAL'
+    ups_serial='^REPLACE_WITH_ESCAPED_DEVICE_SERIAL$'
     ups_test_dir=$(mktemp -d /tmp/ups-helper-test.XXXXXX)
     trap 'rm -rf -- "$ups_test_dir"' EXIT
     export NUT_STATEPATH="$ups_test_dir"
@@ -366,7 +367,7 @@ The following is an **example**, not a deployed configuration. Confirm the
 appropriate driver and settings against the installed NUT documentation and
 hardware before making changes. For the two locally attached UPSes, example
 entries in `/etc/nut/ups.conf` are below. Replace both serial placeholders
-with their distinct values in private configuration:
+with their distinct, regex-escaped values in private configuration:
 
 ```ini
 [eaton1550]
@@ -374,14 +375,14 @@ with their distinct values in private configuration:
     port = auto
     vendorid = 0463
     productid = ffff
-    serial = REPLACE_WITH_1550_SERIAL
+    serial = ^REPLACE_WITH_ESCAPED_1550_SERIAL$
 
 [eaton1150]
     driver = usbhid-ups
     port = auto
     vendorid = 0463
     productid = ffff
-    serial = REPLACE_WITH_1150_SERIAL
+    serial = ^REPLACE_WITH_ESCAPED_1150_SERIAL$
 ```
 
 Configure NUT's operating mode, server and monitor deliberately for the desired
@@ -394,6 +395,9 @@ with the configured UPS name, for example:
 upsc eaton1550@localhost
 upsc eaton1150@localhost
 ```
+
+Verify that each NUT name reports its intended `ups.model` before using it
+for monitoring or policy decisions.
 
 The diagnostic localhost server has been stopped, so a connection refused error
 from the default system server is still expected until persistent services are
