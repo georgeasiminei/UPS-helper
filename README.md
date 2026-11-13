@@ -1,7 +1,7 @@
 # UPS helper
 
-A Raspberry Pi monitors an Eaton UPS over USB. The intended future use is to
-automate an orderly response to a power outage and restoration. **That
+A Raspberry Pi Zero 2 W can read two Eaton UPSes through a USB hub. Its intended
+future use is to automate an orderly response to a power outage and restoration. **That
 automation has not been configured or tested yet.**
 
 An **observe-only service and offline simulator are implemented locally**.
@@ -31,32 +31,43 @@ power-transition restart or battery exhaustion and subsequent power return.
 
 ## Setup and status
 
-Recorded on 2026-11-07 in Europe/Bucharest:
+Updated on 2026-11-13 in Europe/Bucharest:
 
-Latest read-only capture: [complete UPS telemetry at 18:16](docs/UPS-TELEMETRY-2026-11-07.md)
-(92 variables, writable-variable definitions and command discovery). See the
+Latest inspection: [two-UPS hardware inventory and diagnostics at 08:12](docs/HARDWARE-2026-11-13.md).
+The earlier [complete 1150 telemetry capture](docs/UPS-TELEMETRY-2026-11-07.md)
+contains 92 variables, writable-variable definitions and command discovery. See the
 [Vast.ai outage-control proposal](docs/OUTAGE-CONTROL-PROPOSAL.md) for suggested
 grace, two-stage reduction, maintenance, shutdown and Wake-on-LAN recovery rules.
 These rules have not been deployed; rented machines were not contacted.
 
-- UPS: Eaton 5P1150IR, rack 1U, 1150 VA / 770 W, with new batteries.
-- Current load, owner-reported: only a monitor in standby. Loaded server runtime
-  and the appropriate CPU/GPU watt limits remain unmeasured.
-- Host: Raspberry Pi Zero 2 W, connected to the UPS by USB.
-- Pi power: a Duracell PB3 power bank (owner-described 10 Ah; label: 36.5 Wh,
+- UPSes: Eaton 5P1550IR, rack 1U, **1550 VA / 1100 W**, and Eaton 5P1150IR,
+  rack 1U, **1150 VA / 770 W**. New batteries were previously reported for the 1150.
+- Latest reported loads: **418 W / 48%** on the 1550 and **46 W / 7%** on the
+  1150. Both reported `OL CHRG` and 100% charge. These are instantaneous UPS
+  readings, not a verified inventory of connected equipment or runtime tests.
+- Host: Raspberry Pi Zero 2 W, connected to both UPSes through a Realtek
+  `0bda:5411` USB hub. Observed paths: `1-1.1` for the 1550, `1-1.2` for the 1150.
+  Each UPS has a distinct serial for persistent driver selection; USB device
+  numbers change on reconnection.
+- Previously documented Pi power: a Duracell PB3 power bank (owner-described
+  10 Ah; label: 36.5 Wh,
   5 V / 2.4 A maximum input and output) charged from the UPS, with a capacitor
   hold-up circuit between the bank and Pi. Owner testing shows source switching
   usually succeeds, but removing the bank's charging input under heavy CPU
   load causes a reboot. The owner reproduced this with `stress -c 3` (three
   of four cores loaded); no reboot has been observed on input connection.
-- OS: Debian 13 (trixie), aarch64, kernel `6.18.60+rpt-rpi-v8`.
-- Installed: `nut-server` and `nut-client` 2.8.1-5, and `usbutils` 1:018-2.
+- OS recorded on 2026-11-07: Debian 13 (trixie), aarch64, kernel `6.18.60+rpt-rpi-v8`.
+- Packages recorded then: `nut-server` and `nut-client` 2.8.1-5, and `usbutils` 1:018-2.
   SSH is enabled.
-- USB enumeration, NUT driver communication, and UPS variable reads have
-  **passed verification** after correcting the Pi's port connections.
+- Read-only NUT driver probes **returned telemetry from both UPSes** on
+  2026-11-13. The 1550's USB connection is unstable: 624 disconnects in the
+  checked 12-hour window, with a median interval of 65.28 seconds. The 1150
+  remained connected during that window. See the latest diagnostic report.
 - Persistent NUT services are not configured: `MODE=none`; the system server
-  and monitor remain inactive. Diagnostic processes used temporary files and
-  a localhost-only server, then exited and removed their temporary state.
+  and monitor remain inactive. Earlier diagnostics used a temporary localhost
+  server; the latest probes used the driver directly. All diagnostic processes
+  exited and removed their temporary state. No continuous power-event history
+  was available to explain the owner's approximately hourly click and beep.
 - A later Wi-Fi failure after cold restarts was recovered by recreating the
   connection. Read the [Wi-Fi profile loss investigation](docs/WIFI-INCIDENT-2026-11-07.md)
   for the two empty Netplan files, filesystem checks, upstream report and
@@ -71,7 +82,8 @@ and read-only tests. The owner's separate power-bank tests are recorded below.
 The Pi Zero 2 W has two adjacent micro-USB ports with different roles:
 
 1. Connect the Pi's power supply to **PWR IN**, the outer port.
-2. Connect the UPS USB data cable to **USB**, the port closest to mini HDMI.
+2. Connect the USB hub to **USB**, the port closest to mini HDMI, and connect
+   one data cable from each UPS to the hub.
 3. Connect the power bank's charging input to an appropriate UPS-backed outlet.
 
 The initial setup had these two Pi connections swapped: power was in the
@@ -247,7 +259,8 @@ lsusb
 lsusb -d 0463:ffff
 ```
 
-The corrected setup reports `0463:ffff MGE UPS Systems UPS`. Kernel USB
+The current setup reports two `0463:ffff MGE UPS Systems UPS` devices behind
+the hub. On the original single-UPS setup, kernel USB
 information identifies the manufacturer as `EATON`, the product as `Eaton 5P`,
 and the device as full-speed USB HID at 12 Mb/s. The USB host controller's
 `busconnected` value changed from `0` to `1`. This confirmed that the existing
@@ -268,6 +281,10 @@ If the UPS does not appear:
   [Raspberry Pi power supply warnings](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#power-supply-warnings).
 
 ## Verified NUT communication
+
+The following capture describes the original single-UPS verification on
+2026-11-07. For both UPSes and the current USB stability issue, see the
+[2026-11-13 hardware report](docs/HARDWARE-2026-11-13.md).
 
 The installed `usbhid-ups` driver selected subdriver `MGE HID 1.46` and exited
 successfully after three update loops using its data-dump option. A separate
@@ -321,17 +338,21 @@ are candidates for later load shedding; they do not imply six independently
 controlled sockets.
 
 To repeat a driver-only data read with the installed NUT 2.8.1, while no
-other driver owns this USB device:
+other driver owns this USB device, select the intended UPS by its unique
+serial from private inventory. Do not rely on discovery order or changing
+USB device numbers:
 
 ```sh
 (
     set -eu
+    ups_serial='REPLACE_WITH_DEVICE_SERIAL'
     ups_test_dir=$(mktemp -d /tmp/ups-helper-test.XXXXXX)
     trap 'rm -rf -- "$ups_test_dir"' EXIT
     export NUT_STATEPATH="$ups_test_dir"
     export NUT_ALTPIDPATH="$ups_test_dir"
     timeout 45 /lib/nut/usbhid-ups -s eaton5p \
-        -x port=auto -x vendorid=0463 -x productid=ffff -d 3
+        -x port=auto -x vendorid=0463 -x productid=ffff \
+        -x "serial=$ups_serial" -d 3
 )
 ```
 
@@ -343,15 +364,24 @@ are omitted from this repository.
 
 The following is an **example**, not a deployed configuration. Confirm the
 appropriate driver and settings against the installed NUT documentation and
-hardware before making changes. For a locally attached USB UPS, an example
-entry in `/etc/nut/ups.conf` is:
+hardware before making changes. For the two locally attached UPSes, example
+entries in `/etc/nut/ups.conf` are below. Replace both serial placeholders
+with their distinct values in private configuration:
 
 ```ini
-[eaton5p]
+[eaton1550]
     driver = usbhid-ups
     port = auto
     vendorid = 0463
     productid = ffff
+    serial = REPLACE_WITH_1550_SERIAL
+
+[eaton1150]
+    driver = usbhid-ups
+    port = auto
+    vendorid = 0463
+    productid = ffff
+    serial = REPLACE_WITH_1150_SERIAL
 ```
 
 Configure NUT's operating mode, server and monitor deliberately for the desired
@@ -361,7 +391,8 @@ driver and server are configured, verify the connection and read-only telemetry
 with the configured UPS name, for example:
 
 ```sh
-upsc eaton5p@localhost
+upsc eaton1550@localhost
+upsc eaton1150@localhost
 ```
 
 The diagnostic localhost server has been stopped, so a connection refused error
@@ -369,9 +400,17 @@ from the default system server is still expected until persistent services are
 configured. Successful diagnostic reads do not mean that monitoring starts at
 boot or that equipment shutdown is implemented.
 
+Fix and verify the 1550's USB stability before relying on its telemetry for
+outage handling. The observe-only helper currently selects one UPS per
+configuration; these two NUT entries alone do not implement coordinated
+two-UPS policy. Map each managed host to its actual UPS and preserve the
+requirement that the Pi must never intentionally shut itself down.
+Set the private helper configuration's `nut.ups` to the intended NUT name;
+the shipped `eaton5p` example name comes from the earlier single-UPS probe.
+
 ### Access and scanner troubleshooting
 
-The detected device was `/dev/bus/usb/001/002`, owned by `root:nut` with mode
+The originally detected device was `/dev/bus/usb/001/002`, owned by `root:nut` with mode
 `0664`. USB device numbers can change after reconnecting or rebooting; inspect
 the current device rather than assuming this path is permanent. An unprivileged
 scanner initially reported access denied because the account was not in the
