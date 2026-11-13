@@ -1,6 +1,6 @@
 # UPS control requirements
 
-Updated: 2026-11-07. Owner: George. Status: **documented requirements;
+Updated: 2026-11-13. Owner: George. Status: **documented requirements;
 implementation started as a local observe-only foundation; live deployment
 and hardware acceptance tests remain future work**. See
 [implementation and configuration](IMPLEMENTATION.md).
@@ -10,25 +10,31 @@ This file is the source of truth for the requested behavior. The
 implementation choices; the [Pi resilience proposal](RESILIENCE.md) covers
 controller power, storage and recovery. Proposed numbers and mechanisms are
 not accepted or validated merely because they appear in those documents.
-The [telemetry report](UPS-TELEMETRY-2026-11-07.md) records observations, not
-configured policy.
+The [original telemetry report](UPS-TELEMETRY-2026-11-07.md) and
+[current two-UPS hardware report](HARDWARE-2026-11-13.md) record observations,
+not configured policy.
 
 ## Scope and current authorization
 
-- **SCOPE-01 — Local implementation authorized; no SSH.** Implement and test
-  locally without executing any SSH commands, including connections to the Pi.
+- **SCOPE-01 — Local implementation; live actions disabled.** The original
+  implementation task was restricted to local work without SSH. The owner
+  separately authorized read-only Pi diagnostics on 2026-11-13; those checks
+  do not authorize deployment or equipment-changing actions.
   Keep equipment-changing actions disabled: no CPU/GPU limits, Vast changes,
   server shutdown/wake, outlet changes or live power tests. Servers are live,
-  rented on Vast.ai and not yet connected to the UPS. The UPS currently powers
-  only a monitor in standby, according to the owner; this is not a representative
-  server load.
+  rented on Vast.ai. The original monitor-in-standby description is historical:
+  the latest UPS readings were 418 W on the 1550 and 46 W on the 1150. Which
+  equipment is supplied by each UPS has not been verified; do not infer server
+  placement or validated runtime from these readings.
 - **SCOPE-02 — Explicit equipment mapping.** Maintain a configured inventory of
   managed hosts, the UPS protecting each host, dependencies, and wake targets.
   The Pi controller is not a server shutdown target. Machine identities,
   addresses, credentials and MAC addresses belong in private configuration,
   not these public requirements.
 - **SCOPE-03 — Existing verification.** UPS USB communication and read-only
-  telemetry collection have passed. Persistent monitoring and outage control
+  telemetry collection have passed for both UPSes. The 1550 repeatedly loses
+  its USB connection; successful point reads do not establish reliable
+  monitoring. Persistent monitoring and outage control
   are not currently deployed. The local observe-only monitor and simulator do
   not provide physical outage protection or claim verified live control.
 

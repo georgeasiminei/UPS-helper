@@ -38,6 +38,6 @@ policy:
   wake_retry_later_seconds: 300
   wake_retry_backoff_after_seconds: 300
 
-# Empty until the private inventory is known. The monitor currently reports
-# only standby consumption and says nothing about loaded server endurance.
+# Empty until the private host-to-UPS inventory is verified. Instantaneous UPS
+# load readings do not establish loaded battery endurance or host placement.
 hosts: []

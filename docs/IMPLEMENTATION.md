@@ -73,6 +73,14 @@ No installation or service enabling on the Pi was performed as part of this work
 
 ## Work before live operation
 
+The [2026-11-13 hardware inventory](HARDWARE-2026-11-13.md) records two UPSes
+on the Pi's USB hub and recurring USB disconnects from the 1550. NUT remains
+inactive on the Pi. Each helper configuration currently selects one NUT UPS
+name; the shipped `nut.ups: eaton5p` is the historical single-UPS example.
+Set the intended name in private configuration after configuring NUT. Reading
+both devices during diagnostics does not establish coordinated two-UPS policy
+or a verified mapping of hosts to their power sources.
+
 Live adapters and confirmation mechanisms remain to be designed, implemented, and tested, along with a watchdog, persistent NUT behavior and source freshness verification, loaded runtime and policy calibration, Vast integration extensions, and wake-on-LAN topology verification. End-to-end failure testing and explicit acceptance on the actual installation are still required. This observe-only release is a foundation for that work; it does not implement the complete protection requirements.
 
 ## Validation and CI
