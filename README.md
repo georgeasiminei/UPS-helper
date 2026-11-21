@@ -73,6 +73,9 @@ These rules have not been deployed; rented machines were not contacted.
   for the two empty Netplan files, filesystem checks, upstream report and
   remaining uncertainty about the cause.
 
+A subsequent [Wi-Fi authentication failure](docs/WIFI-INCIDENT-2026-11-20.md)
+left the Pi disconnected until manual recovery; the trigger remains unknown.
+
 The SSH diagnostic sessions did not disconnect UPS mains, run a battery runtime
 test, change outlets, or send shutdown commands. Those sessions used monitoring
 and read-only tests. The owner's separate power-bank tests are recorded below.
