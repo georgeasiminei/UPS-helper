@@ -21,6 +21,9 @@ Recorded on 2026-11-07 in Europe/Bucharest:
   and monitor remain inactive. Diagnostic processes used temporary files and
   a localhost-only server, then exited and removed their temporary state.
 
+A later [Wi-Fi authentication failure](docs/WIFI-INCIDENT-2026-11-20.md)
+left the Pi disconnected until manual recovery; the trigger remains unknown.
+
 No mains disconnection, battery runtime test, forced shutdown, outlet change,
 or shutdown command has been performed. Tests so far have been monitoring and
 read-only.
@@ -94,8 +97,8 @@ If the UPS does not appear:
 - Check the cable and inspect recent USB messages with `dmesg` (administrator
   privileges may be needed).
 - Check power with `vcgencmd get_throttled`, if available. The initial value
-  was `0x0`, with no undervoltage events reported; after the fix no
-  undervoltage was reported either.
+  was `0x0`; the [Pi Zero lacks undervoltage detection](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html),
+  so this does not establish stable power.
 
 ## Verified NUT communication
 
