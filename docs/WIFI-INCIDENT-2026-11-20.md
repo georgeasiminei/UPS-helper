@@ -11,7 +11,12 @@ password was wrong or missing.
 
 The same reason 6 / reason 15 pattern occurred on 15 November around
 09:53–09:54 and recovered. The evidence establishes an authentication failure between the client and
-access point, but not its trigger or why automatic recovery did not resume.
+access point, but not its trigger. NetworkManager 1.52.1 source shows that
+exhausted authentication attempts can lead to `no-secrets`, and its policy
+blocks autoconnect for that reason unless a new secrets agent registers. This
+explains the observed lack of further activation attempts; it does not establish
+why the handshake failed. See the [Wi-Fi device logic](https://github.com/NetworkManager/NetworkManager/blob/1.52.1/src/core/devices/wifi/nm-device-wifi.c)
+and [autoconnect policy](https://github.com/NetworkManager/NetworkManager/blob/1.52.1/src/core/nm-policy.c).
 The Pi had been up for 11 days; the incident did not coincide with a restart.
 No kernel errors were found in the incident window. `vcgencmd get_throttled`
 reported `0x0`. The [Pi Zero lacks undervoltage detection](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html),
